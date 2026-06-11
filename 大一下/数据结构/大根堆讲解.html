@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>堆调整 adjust() 可视化演示</title>
+<style>
+    * {
+        box-sizing: border-box;
+    }
+
+    body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+        background: #f6f7fb;
+        color: #1f2937;
+    }
+
+    header {
+        padding: 24px 32px;
+        background: linear-gradient(135deg, #111827, #374151);
+        color: white;
+    }
+
+    header h1 {
+        margin: 0 0 8px;
+        font-size: 28px;
+    }
+
+    header p {
+        margin: 0;
+        color: #d1d5db;
+        line-height: 1.7;
+    }
+
+    main {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 24px;
+    }
+
+    .grid {
+        display: grid;
+        grid-template-columns: 1.25fr 0.95fr;
+        gap: 20px;
+    }
+
+    .card {
+        background: white;
+        border-radius: 18px;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+        padding: 20px;
+        border: 1px solid #e5e7eb;
+    }
+
+    .card h2 {
+        margin: 0 0 14px;
+        font-size: 20px;
+    }
+
+    .tree-area {
+        min-height: 360px;
+        position: relative;
+        overflow: hidden;
+        border-radius: 14px;
+        background: #f9fafb;
+        border: 1px dashed #d1d5db;
+    }
+
+    svg {
+        width: 100%;
+        height: 360px;
+        display: block;
+    }
+
+    .node circle {
+        fill: white;
+        stroke: #9ca3af;
+        stroke-width: 3;
+        transition: all 0.3s ease;
+    }
+
+    .node text.value {
+        font-size: 22px;
+        font-weight: 700;
+        fill: #111827;
+        text-anchor: middle;
+        dominant-baseline: middle;
+    }
+
+    .node text.index {
+        font-size: 13px;
+        fill: #6b7280;
+        text-anchor: middle;
+    }
+
+    .edge {
+        stroke: #cbd5e1;
+        stroke-width: 3;
+    }
+
+    .node.focus circle {
+        fill: #fee2e2;
+        stroke: #ef4444;
+    }
+
+    .node.child circle {
+        fill: #dbeafe;
+        stroke: #3b82f6;
+    }
+
+    .node.selected circle {
+        fill: #dcfce7;
+        stroke: #22c55e;
+    }
+
+    .node.empty circle {
+        fill: #fef3c7;
+        stroke: #f59e0b;
+        stroke-dasharray: 6 4;
+    }
+
+    .node.temp-node circle {
+        fill: #ede9fe;
+        stroke: #8b5cf6;
+    }
+
+    .array-row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 12px;
+    }
+
+    .cell {
+        width: 62px;
+        height: 66px;
+        border-radius: 12px;
+        border: 2px solid #d1d5db;
+        background: #ffffff;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.25s ease;
+    }
+
+    .cell .idx {
+        font-size: 12px;
+        color: #6b7280;
+    }
+
+    .cell .val {
+        font-size: 22px;
+        font-weight: 800;
+    }
+
+    .cell.changed {
+        background: #dcfce7;
+        border-color: #22c55e;
+    }
+
+    .cell.empty {
+        background: #fef3c7;
+        border-color: #f59e0b;
+        border-style: dashed;
+    }
+
+    .cell.temp {
+        background: #ede9fe;
+        border-color: #8b5cf6;
+    }
+
+    .controls {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 16px;
+    }
+
+    button {
+        border: none;
+        border-radius: 10px;
+        padding: 10px 16px;
+        cursor: pointer;
+        font-weight: 700;
+        background: #111827;
+        color: white;
+        transition: all 0.2s ease;
+    }
+
+    button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 18px rgba(17, 24, 39, 0.18);
+    }
+
+    button.secondary {
+        background: #e5e7eb;
+        color: #111827;
+    }
+
+    button:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+    }
+
+    .status {
+        margin-top: 14px;
+        padding: 14px 16px;
+        border-radius: 12px;
+        background: #f3f4f6;
+        line-height: 1.75;
+        min-height: 86px;
+        border-left: 5px solid #111827;
+    }
+
+    .status strong {
+        color: #111827;
+    }
+
+    .code {
+        background: #0f172a;
+        color: #dbeafe;
+        border-radius: 14px;
+        padding: 16px;
+        overflow-x: auto;
+        font-family: Consolas, Monaco, "Courier New", monospace;
+        font-size: 14px;
+        line-height: 1.7;
+    }
+
+    .line {
+        display: block;
+        padding: 1px 8px;
+        border-radius: 7px;
+        white-space: pre;
+    }
+
+    .line.on {
+        background: rgba(59, 130, 246, 0.35);
+        color: white;
+    }
+
+    .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 14px;
+        font-size: 14px;
+    }
+
+    .tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: #f3f4f6;
+    }
+
+    .dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+
+    .dot.focus { background: #ef4444; }
+    .dot.child { background: #3b82f6; }
+    .dot.selected { background: #22c55e; }
+    .dot.empty { background: #f59e0b; }
+    .dot.temp { background: #8b5cf6; }
+
+    .note {
+        line-height: 1.8;
+        color: #374151;
+    }
+
+    .formula {
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        padding: 12px 14px;
+        border-radius: 12px;
+        margin-top: 10px;
+        line-height: 1.8;
+    }
+
+    .temp-box {
+        margin-top: 12px;
+        padding: 12px 14px;
+        border-radius: 12px;
+        background: #f5f3ff;
+        border: 1px solid #ddd6fe;
+        font-size: 18px;
+        font-weight: 800;
+        color: #5b21b6;
+    }
+
+    @media (max-width: 900px) {
+        .grid {
+            grid-template-columns: 1fr;
+        }
+
+        main {
+            padding: 16px;
+        }
+    }
+</style>
+</head>
+<body>
+<header>
+    <h1>大根堆 adjust() 向下调整可视化</h1>
+    <p>演示数组 <strong>[3, 9, 8, 7, 6, 5, 4]</strong> 从下标 0 开始进行堆调整的全过程。</p>
+</header>
+
+<main>
+    <div class="grid">
+        <section class="card">
+            <h2>1. 树形结构演示</h2>
+            <div class="tree-area">
+                <svg id="tree" viewBox="0 0 760 360"></svg>
+            </div>
+
+            <div class="legend">
+                <span class="tag"><span class="dot focus"></span>当前父位置</span>
+                <span class="tag"><span class="dot child"></span>正在比较的孩子</span>
+                <span class="tag"><span class="dot selected"></span>较大的孩子</span>
+                <span class="tag"><span class="dot empty"></span>空位</span>
+                <span class="tag"><span class="dot temp"></span>暂存 temp</span>
+            </div>
+
+            <h2 style="margin-top:22px;">2. 数组表示</h2>
+            <div id="array" class="array-row"></div>
+
+            <div id="tempBox" class="temp-box">temp = 未取出</div>
+
+            <div class="controls">
+                <button id="prevBtn">上一步</button>
+                <button id="nextBtn">下一步</button>
+                <button id="autoBtn">自动播放</button>
+                <button id="resetBtn" class="secondary">重置</button>
+            </div>
+
+            <div id="status" class="status"></div>
+        </section>
+
+        <section class="card">
+            <h2>3. 对应代码</h2>
+            <pre class="code" id="codeBox"></pre>
+
+            <h2 style="margin-top:22px;">4. 关键规则</h2>
+            <div class="note">
+                <p>这个算法不是直接交换，而是先把 <strong>k[i]</strong> 取出来放进 <strong>temp</strong>，然后让较大的孩子不断上移。</p>
+                <div class="formula">
+                    左孩子下标：<strong>2 * i + 1</strong><br>
+                    右孩子下标：<strong>2 * i + 2</strong><br>
+                    父结点下标：<strong>(i - 1) / 2</strong>
+                </div>
+                <p>大根堆要求：每个父结点都大于等于它的左右孩子。调整完成后，根结点会重新成为当前堆中的最大值。</p>
+            </div>
+        </section>
+    </div>
+</main>
+
+<script>
+const codeLines = [
+`void adjust(keytype k[], int i, int n) {`,
+`    int j;`,
+`    keytype temp;`,
+`    temp = k[i];`,
+`    j = 2 * i + 1;`,
+`    while (j < n) {`,
+`        if (j + 1 < n && k[j] < k[j + 1])`,
+`            j++;`,
+`        if (temp < k[j]) {`,
+`            k[(j - 1) / 2] = k[j];`,
+`            j = 2 * j + 1;`,
+`        } else break;`,
+`    }`,
+`    k[(j - 1) / 2] = temp;`,
+`}`
+];
+
+const positions = [
+    {x:380, y:55},
+    {x:220, y:145},
+    {x:540, y:145},
+    {x:140, y:250},
+    {x:300, y:250},
+    {x:460, y:250},
+    {x:620, y:250}
+];
+
+const edges = [
+    [0,1],[0,2],[1,3],[1,4],[2,5],[2,6]
+];
+
+const steps = [
+    {
+        arr: [3,9,8,7,6,5,4],
+        temp: null,
+        empty: null,
+        focus: 0,
+        children: [],
+        selected: null,
+        changed: [],
+        line: [0],
+        text: `初始状态。当前要调整的位置是 i = 0，也就是根结点 3。它的左右子树本身已经是大根堆，只是根结点可能太小。`
+    },
+    {
+        arr: [null,9,8,7,6,5,4],
+        temp: 3,
+        empty: 0,
+        focus: 0,
+        children: [],
+        selected: null,
+        changed: [],
+        line: [3],
+        text: `执行 temp = k[i]。把根结点 3 先取出来，保存到 temp 中。根位置暂时看成一个空位。`
+    },
+    {
+        arr: [null,9,8,7,6,5,4],
+        temp: 3,
+        empty: 0,
+        focus: 0,
+        children: [1],
+        selected: null,
+        changed: [],
+        line: [4],
+        text: `执行 j = 2 * i + 1。因为 i = 0，所以 j = 1，先让 j 指向左孩子，也就是值为 9 的结点。`
+    },
+    {
+        arr: [null,9,8,7,6,5,4],
+        temp: 3,
+        empty: 0,
+        focus: 0,
+        children: [1,2],
+        selected: 1,
+        changed: [],
+        line: [6,7],
+        text: `比较左右孩子：左孩子 k[1] = 9，右孩子 k[2] = 8。较大的孩子是 9，所以 j 仍然指向下标 1。`
+    },
+    {
+        arr: [9,null,8,7,6,5,4],
+        temp: 3,
+        empty: 1,
+        focus: 1,
+        children: [],
+        selected: 0,
+        changed: [0],
+        line: [8,9],
+        text: `比较 temp 和较大的孩子：temp = 3，小于 k[1] = 9。因此 3 不能放在根结点，把较大的孩子 9 上移到根结点。`
+    },
+    {
+        arr: [9,null,8,7,6,5,4],
+        temp: 3,
+        empty: 1,
+        focus: 1,
+        children: [3],
+        selected: null,
+        changed: [],
+        line: [10],
+        text: `执行 j = 2 * j + 1。原来 j = 1，所以新的 j = 3。空位来到下标 1，继续看它的左孩子。`
+    },
+    {
+        arr: [9,null,8,7,6,5,4],
+        temp: 3,
+        empty: 1,
+        focus: 1,
+        children: [3,4],
+        selected: 3,
+        changed: [],
+        line: [6,7],
+        text: `比较下标 1 的左右孩子：k[3] = 7，k[4] = 6。较大的孩子是 7，所以 j 指向下标 3。`
+    },
+    {
+        arr: [9,7,8,null,6,5,4],
+        temp: 3,
+        empty: 3,
+        focus: 3,
+        children: [],
+        selected: 1,
+        changed: [1],
+        line: [8,9],
+        text: `继续比较：temp = 3，小于 k[3] = 7。因此把 7 上移到它的父结点位置，也就是下标 1。`
+    },
+    {
+        arr: [9,7,8,null,6,5,4],
+        temp: 3,
+        empty: 3,
+        focus: 3,
+        children: [],
+        selected: null,
+        changed: [],
+        line: [10,5],
+        text: `再次计算 j = 2 * 3 + 1 = 7。因为数组长度 n = 7，而 j < n 不成立，所以已经没有孩子可以继续比较。`
+    },
+    {
+        arr: [9,7,8,3,6,5,4],
+        temp: 3,
+        empty: null,
+        focus: null,
+        children: [],
+        selected: 3,
+        changed: [3],
+        line: [13],
+        text: `执行 k[(j - 1) / 2] = temp。这里 (7 - 1) / 2 = 3，所以把 temp = 3 放回下标 3。`
+    },
+    {
+        arr: [9,7,8,3,6,5,4],
+        temp: null,
+        empty: null,
+        focus: null,
+        children: [],
+        selected: null,
+        changed: [],
+        line: [14],
+        text: `调整完成。数组变为 [9, 7, 8, 3, 6, 5, 4]，对应的树已经满足大根堆性质。`
+    }
+];
+
+let stepIndex = 0;
+let timer = null;
+
+function renderCode(activeLines) {
+    const codeBox = document.getElementById("codeBox");
+    codeBox.innerHTML = codeLines.map((line, idx) => {
+        const cls = activeLines.includes(idx) ? "line on" : "line";
+        return `<span class="${cls}">${escapeHtml(line)}</span>`;
+    }).join("");
+}
+
+function escapeHtml(str) {
+    return str.replace(/[&<>"']/g, m => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    }[m]));
+}
+
+function renderArray(step) {
+    const array = document.getElementById("array");
+    array.innerHTML = "";
+    step.arr.forEach((val, idx) => {
+        const cell = document.createElement("div");
+        cell.className = "cell";
+        if (step.changed.includes(idx)) cell.classList.add("changed");
+        if (step.empty === idx) cell.classList.add("empty");
+        cell.innerHTML = `<div class="idx">下标 ${idx}</div><div class="val">${val === null ? "_" : val}</div>`;
+        array.appendChild(cell);
+    });
+}
+
+function renderTree(step) {
+    const svg = document.getElementById("tree");
+    svg.innerHTML = "";
+
+    edges.forEach(([a,b]) => {
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line.setAttribute("x1", positions[a].x);
+        line.setAttribute("y1", positions[a].y);
+        line.setAttribute("x2", positions[b].x);
+        line.setAttribute("y2", positions[b].y);
+        line.setAttribute("class", "edge");
+        svg.appendChild(line);
+    });
+
+    step.arr.forEach((val, idx) => {
+        const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        let cls = "node";
+        if (step.focus === idx) cls += " focus";
+        if (step.children.includes(idx)) cls += " child";
+        if (step.selected === idx) cls += " selected";
+        if (step.empty === idx) cls += " empty";
+        group.setAttribute("class", cls);
+
+        const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        circle.setAttribute("cx", positions[idx].x);
+        circle.setAttribute("cy", positions[idx].y);
+        circle.setAttribute("r", 30);
+
+        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        text.setAttribute("x", positions[idx].x);
+        text.setAttribute("y", positions[idx].y + 2);
+        text.setAttribute("class", "value");
+        text.textContent = val === null ? "_" : val;
+
+        const index = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        index.setAttribute("x", positions[idx].x);
+        index.setAttribute("y", positions[idx].y + 50);
+        index.setAttribute("class", "index");
+        index.textContent = `idx ${idx}`;
+
+        group.appendChild(circle);
+        group.appendChild(text);
+        group.appendChild(index);
+        svg.appendChild(group);
+    });
+
+    if (step.temp !== null) {
+        const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        g.setAttribute("class", "node temp-node");
+        const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        circle.setAttribute("cx", 690);
+        circle.setAttribute("cy", 55);
+        circle.setAttribute("r", 30);
+
+        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        text.setAttribute("x", 690);
+        text.setAttribute("y", 57);
+        text.setAttribute("class", "value");
+        text.textContent = step.temp;
+
+        const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        label.setAttribute("x", 690);
+        label.setAttribute("y", 105);
+        label.setAttribute("class", "index");
+        label.textContent = "temp";
+
+        g.appendChild(circle);
+        g.appendChild(text);
+        g.appendChild(label);
+        svg.appendChild(g);
+    }
+}
+
+function render() {
+    const step = steps[stepIndex];
+    renderTree(step);
+    renderArray(step);
+    renderCode(step.line);
+    document.getElementById("status").innerHTML =
+        `<strong>第 ${stepIndex + 1} / ${steps.length} 步：</strong>${step.text}`;
+    document.getElementById("tempBox").textContent =
+        step.temp === null ? "temp = 未取出" : `temp = ${step.temp}`;
+    document.getElementById("prevBtn").disabled = stepIndex === 0;
+    document.getElementById("nextBtn").disabled = stepIndex === steps.length - 1;
+}
+
+function nextStep() {
+    if (stepIndex < steps.length - 1) {
+        stepIndex++;
+        render();
+    } else {
+        stopAuto();
+    }
+}
+
+function prevStep() {
+    if (stepIndex > 0) {
+        stepIndex--;
+        render();
+    }
+}
+
+function reset() {
+    stopAuto();
+    stepIndex = 0;
+    render();
+}
+
+function autoPlay() {
+    if (timer) {
+        stopAuto();
+        return;
+    }
+    document.getElementById("autoBtn").textContent = "暂停";
+    timer = setInterval(() => {
+        if (stepIndex < steps.length - 1) {
+            stepIndex++;
+            render();
+        } else {
+            stopAuto();
+        }
+    }, 1300);
+}
+
+function stopAuto() {
+    if (timer) {
+        clearInterval(timer);
+        timer = null;
+    }
+    document.getElementById("autoBtn").textContent = "自动播放";
+}
+
+document.getElementById("nextBtn").addEventListener("click", nextStep);
+document.getElementById("prevBtn").addEventListener("click", prevStep);
+document.getElementById("resetBtn").addEventListener("click", reset);
+document.getElementById("autoBtn").addEventListener("click", autoPlay);
+
+render();
+</script>
+</body>
+</html>
