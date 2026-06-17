@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>快速排序 partition 分区可视化</title>
+<style>
+    * { box-sizing: border-box; }
+
+    body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+        background: #f6f7fb;
+        color: #1f2937;
+    }
+
+    header {
+        padding: 24px 32px;
+        background: linear-gradient(135deg, #0f172a, #334155);
+        color: white;
+    }
+
+    header h1 {
+        margin: 0 0 8px;
+        font-size: 28px;
+    }
+
+    header p {
+        margin: 0;
+        color: #dbeafe;
+        line-height: 1.7;
+    }
+
+    main {
+        max-width: 1220px;
+        margin: 0 auto;
+        padding: 24px;
+    }
+
+    .grid {
+        display: grid;
+        grid-template-columns: 1.18fr 0.95fr;
+        gap: 20px;
+    }
+
+    .card {
+        background: white;
+        border-radius: 18px;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+        padding: 20px;
+        border: 1px solid #e5e7eb;
+    }
+
+    .card h2 {
+        margin: 0 0 14px;
+        font-size: 20px;
+    }
+
+    .array-wrap {
+        min-height: 260px;
+        border-radius: 16px;
+        background: #f9fafb;
+        border: 1px dashed #cbd5e1;
+        padding: 24px 16px;
+        overflow-x: auto;
+    }
+
+    .array-row {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        min-width: 760px;
+        justify-content: center;
+        padding-top: 32px;
+    }
+
+    .slot {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 76px;
+    }
+
+    .pointer-top,
+    .pointer-bottom {
+        height: 28px;
+        font-size: 13px;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .pointer-top span,
+    .pointer-bottom span {
+        padding: 3px 8px;
+        border-radius: 999px;
+        color: white;
+    }
+
+    .p-low { background: #ef4444; }
+    .p-high { background: #2563eb; }
+    .p-both { background: #7c3aed; }
+
+    .cell {
+        width: 66px;
+        height: 66px;
+        border-radius: 14px;
+        border: 2px solid #cbd5e1;
+        background: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 26px;
+        font-weight: 900;
+        transition: all 0.25s ease;
+        position: relative;
+    }
+
+    .cell.small {
+        background: #ecfdf5;
+        border-color: #22c55e;
+    }
+
+    .cell.big {
+        background: #eff6ff;
+        border-color: #3b82f6;
+    }
+
+    .cell.hole {
+        background: #fef3c7;
+        border-color: #f59e0b;
+        border-style: dashed;
+        color: #92400e;
+    }
+
+    .cell.changed {
+        background: #dcfce7;
+        border-color: #16a34a;
+        transform: translateY(-3px);
+    }
+
+    .cell.pivot-final {
+        background: #ede9fe;
+        border-color: #8b5cf6;
+        color: #4c1d95;
+    }
+
+    .idx {
+        margin-top: 7px;
+        color: #6b7280;
+        font-size: 12px;
+    }
+
+    .pivot-box {
+        margin-top: 16px;
+        padding: 12px 14px;
+        border-radius: 12px;
+        background: #f5f3ff;
+        border: 1px solid #ddd6fe;
+        color: #5b21b6;
+        font-size: 18px;
+        font-weight: 900;
+    }
+
+    .controls {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 16px;
+    }
+
+    button {
+        border: none;
+        border-radius: 10px;
+        padding: 10px 16px;
+        cursor: pointer;
+        font-weight: 800;
+        background: #111827;
+        color: white;
+        transition: all 0.2s ease;
+    }
+
+    button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 18px rgba(17, 24, 39, 0.18);
+    }
+
+    button.secondary {
+        background: #e5e7eb;
+        color: #111827;
+    }
+
+    button:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+    }
+
+    .status {
+        margin-top: 14px;
+        padding: 14px 16px;
+        border-radius: 12px;
+        background: #f3f4f6;
+        line-height: 1.75;
+        min-height: 96px;
+        border-left: 5px solid #111827;
+    }
+
+    .status strong { color: #111827; }
+
+    .code {
+        background: #0f172a;
+        color: #dbeafe;
+        border-radius: 14px;
+        padding: 16px;
+        overflow-x: auto;
+        font-family: Consolas, Monaco, "Courier New", monospace;
+        font-size: 14px;
+        line-height: 1.7;
+    }
+
+    .line {
+        display: block;
+        padding: 1px 8px;
+        border-radius: 7px;
+        white-space: pre;
+    }
+
+    .line.on {
+        background: rgba(59, 130, 246, 0.35);
+        color: white;
+    }
+
+    .note {
+        line-height: 1.85;
+        color: #374151;
+    }
+
+    .formula {
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        padding: 12px 14px;
+        border-radius: 12px;
+        margin-top: 10px;
+        line-height: 1.85;
+    }
+
+    .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 14px;
+        font-size: 14px;
+    }
+
+    .tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: #f3f4f6;
+    }
+
+    .dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+
+    .dot.low { background: #ef4444; }
+    .dot.high { background: #2563eb; }
+    .dot.hole { background: #f59e0b; }
+    .dot.small { background: #22c55e; }
+    .dot.big { background: #3b82f6; }
+    .dot.pivot { background: #8b5cf6; }
+
+    .two-cols {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin-top: 14px;
+    }
+
+    .mini {
+        border-radius: 12px;
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        padding: 12px;
+    }
+
+    .mini h3 {
+        margin: 0 0 8px;
+        font-size: 16px;
+    }
+
+    .mini p {
+        margin: 0;
+        line-height: 1.7;
+    }
+
+    @media (max-width: 920px) {
+        .grid { grid-template-columns: 1fr; }
+        main { padding: 16px; }
+    }
+</style>
+</head>
+<body>
+<header>
+    <h1>快速排序 partition 分区过程可视化</h1>
+    <p>用“挖坑法”演示：选首元素作为基准值 pivot，让小于等于 pivot 的元素到左边，大于等于 pivot 的元素到右边。</p>
+</header>
+
+<main>
+    <div class="grid">
+        <section class="card">
+            <h2>1. 分区演示数组</h2>
+            <div class="array-wrap">
+                <div id="array" class="array-row"></div>
+            </div>
+
+            <div class="legend">
+                <span class="tag"><span class="dot low"></span>low 左指针</span>
+                <span class="tag"><span class="dot high"></span>high 右指针</span>
+                <span class="tag"><span class="dot hole"></span>坑位</span>
+                <span class="tag"><span class="dot small"></span>已在 pivot 左侧</span>
+                <span class="tag"><span class="dot big"></span>已在 pivot 右侧</span>
+                <span class="tag"><span class="dot pivot"></span>pivot 最终位置</span>
+            </div>
+
+            <div id="pivotBox" class="pivot-box">pivot = 未取出</div>
+
+            <div class="controls">
+                <button id="prevBtn">上一步</button>
+                <button id="nextBtn">下一步</button>
+                <button id="autoBtn">自动播放</button>
+                <button id="resetBtn" class="secondary">重置</button>
+            </div>
+
+            <div id="status" class="status"></div>
+
+            <div class="two-cols">
+                <div class="mini">
+                    <h3>分区完成后保证什么？</h3>
+                    <p>pivot 左边的元素都不大于 pivot，pivot 右边的元素都不小于 pivot。</p>
+                </div>
+                <div class="mini">
+                    <h3>分区完成后不保证什么？</h3>
+                    <p>左右两边内部还不一定有序，需要继续递归快排。</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="card">
+            <h2>2. 对应 C 代码</h2>
+            <pre class="code" id="codeBox"></pre>
+
+            <h2 style="margin-top:22px;">3. 为什么要分区？</h2>
+            <div class="note">
+                <p>快速排序的关键不是一开始就把所有元素排好，而是先把一个元素放到它最终该在的位置。</p>
+                <p>这个元素就是 <strong>pivot</strong>，读作“基准值”。分区之后，pivot 的位置已经确定，接下来只需要分别处理左右两边。</p>
+                <div class="formula">
+                    分区前：<strong>[6, 1, 8, 4, 7, 3, 5]</strong><br>
+                    pivot = <strong>6</strong><br>
+                    分区后：<strong>[5, 1, 3, 4, 6, 7, 8]</strong><br>
+                    pivot 下标 = <strong>4</strong>
+                </div>
+            </div>
+        </section>
+    </div>
+</main>
+
+<script>
+const codeLines = [
+`int partition(int a[], int low, int high) {`,
+`    int pivot = a[low];`,
+`    while (low < high) {`,
+`        while (low < high && a[high] >= pivot)`,
+`            high--;`,
+`        a[low] = a[high];`,
+`        while (low < high && a[low] <= pivot)`,
+`            low++;`,
+`        a[high] = a[low];`,
+`    }`,
+`    a[low] = pivot;`,
+`    return low;`,
+`}`
+];
+
+const steps = [
+    {
+        arr: [6,1,8,4,7,3,5],
+        low: 0,
+        high: 6,
+        pivot: null,
+        hole: null,
+        smallRange: [],
+        bigRange: [],
+        changed: [],
+        finalPivot: null,
+        line: [0],
+        text: `初始数组为 [6, 1, 8, 4, 7, 3, 5]。准备对整个区间做一次 partition 分区，low 指向左端，high 指向右端。`
+    },
+    {
+        arr: ["_",1,8,4,7,3,5],
+        low: 0,
+        high: 6,
+        pivot: 6,
+        hole: 0,
+        smallRange: [],
+        bigRange: [],
+        changed: [],
+        finalPivot: null,
+        line: [1],
+        text: `取首元素作为 pivot：pivot = a[0] = 6。把 6 暂存起来，原来的位置变成一个“坑”。`
+    },
+    {
+        arr: ["_",1,8,4,7,3,5],
+        low: 0,
+        high: 6,
+        pivot: 6,
+        hole: 0,
+        smallRange: [],
+        bigRange: [],
+        changed: [],
+        finalPivot: null,
+        line: [3,4],
+        text: `从右往左找第一个小于 pivot 的元素。当前 a[6] = 5，小于 6，所以 high 停在下标 6。`
+    },
+    {
+        arr: [5,1,8,4,7,3,"_"],
+        low: 0,
+        high: 6,
+        pivot: 6,
+        hole: 6,
+        smallRange: [0],
+        bigRange: [],
+        changed: [0],
+        finalPivot: null,
+        line: [5],
+        text: `把右侧找到的 5 填到左边的坑里：a[0] = a[6]。现在下标 6 变成新的坑。`
+    },
+    {
+        arr: [5,1,8,4,7,3,"_"],
+        low: 2,
+        high: 6,
+        pivot: 6,
+        hole: 6,
+        smallRange: [0,1],
+        bigRange: [],
+        changed: [],
+        finalPivot: null,
+        line: [6,7],
+        text: `从左往右找第一个大于 pivot 的元素。a[0] = 5 <= 6，a[1] = 1 <= 6，继续走；a[2] = 8 > 6，所以 low 停在下标 2。`
+    },
+    {
+        arr: [5,1,"_",4,7,3,8],
+        low: 2,
+        high: 6,
+        pivot: 6,
+        hole: 2,
+        smallRange: [0,1],
+        bigRange: [6],
+        changed: [6],
+        finalPivot: null,
+        line: [8],
+        text: `把左侧找到的 8 填到右边的坑里：a[6] = a[2]。现在下标 2 变成新的坑。`
+    },
+    {
+        arr: [5,1,"_",4,7,3,8],
+        low: 2,
+        high: 5,
+        pivot: 6,
+        hole: 2,
+        smallRange: [0,1],
+        bigRange: [6],
+        changed: [],
+        finalPivot: null,
+        line: [3,4],
+        text: `继续从右往左找小于 pivot 的元素。a[6] = 8 >= 6，所以 high 左移到 5；a[5] = 3 < 6，于是停下。`
+    },
+    {
+        arr: [5,1,3,4,7,"_",8],
+        low: 2,
+        high: 5,
+        pivot: 6,
+        hole: 5,
+        smallRange: [0,1,2],
+        bigRange: [6],
+        changed: [2],
+        finalPivot: null,
+        line: [5],
+        text: `把右侧找到的 3 填到左边的坑里：a[2] = a[5]。现在下标 5 变成新的坑。`
+    },
+    {
+        arr: [5,1,3,4,7,"_",8],
+        low: 4,
+        high: 5,
+        pivot: 6,
+        hole: 5,
+        smallRange: [0,1,2,3],
+        bigRange: [6],
+        changed: [],
+        finalPivot: null,
+        line: [6,7],
+        text: `继续从左往右找大于 pivot 的元素。a[2] = 3 <= 6，a[3] = 4 <= 6，继续走；a[4] = 7 > 6，所以 low 停在下标 4。`
+    },
+    {
+        arr: [5,1,3,4,"_",7,8],
+        low: 4,
+        high: 5,
+        pivot: 6,
+        hole: 4,
+        smallRange: [0,1,2,3],
+        bigRange: [5,6],
+        changed: [5],
+        finalPivot: null,
+        line: [8],
+        text: `把左侧找到的 7 填到右边的坑里：a[5] = a[4]。现在下标 4 变成新的坑。`
+    },
+    {
+        arr: [5,1,3,4,"_",7,8],
+        low: 4,
+        high: 4,
+        pivot: 6,
+        hole: 4,
+        smallRange: [0,1,2,3],
+        bigRange: [5,6],
+        changed: [],
+        finalPivot: null,
+        line: [3,4,9],
+        text: `继续从右往左移动 high。a[5] = 7 >= 6，所以 high 左移到 4。此时 low == high，左右指针相遇，循环结束。`
+    },
+    {
+        arr: [5,1,3,4,6,7,8],
+        low: 4,
+        high: 4,
+        pivot: 6,
+        hole: null,
+        smallRange: [0,1,2,3],
+        bigRange: [5,6],
+        changed: [4],
+        finalPivot: 4,
+        line: [10],
+        text: `把 pivot 放回相遇的位置：a[4] = 6。现在 pivot 左边都 <= 6，右边都 >= 6。`
+    },
+    {
+        arr: [5,1,3,4,6,7,8],
+        low: 4,
+        high: 4,
+        pivot: null,
+        hole: null,
+        smallRange: [0,1,2,3],
+        bigRange: [5,6],
+        changed: [],
+        finalPivot: 4,
+        line: [11],
+        text: `返回 pivot 的最终下标 4。注意：这一步只完成了一次分区，不代表整个数组已经排序完成；左右子区间还需要继续快排。`
+    }
+];
+
+let stepIndex = 0;
+let timer = null;
+
+function escapeHtml(str) {
+    return str.replace(/[&<>"']/g, m => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    }[m]));
+}
+
+function renderCode(activeLines) {
+    const codeBox = document.getElementById("codeBox");
+    codeBox.innerHTML = codeLines.map((line, idx) => {
+        const cls = activeLines.includes(idx) ? "line on" : "line";
+        return `<span class="${cls}">${escapeHtml(line)}</span>`;
+    }).join("");
+}
+
+function renderArray(step) {
+    const array = document.getElementById("array");
+    array.innerHTML = "";
+
+    step.arr.forEach((val, idx) => {
+        const slot = document.createElement("div");
+        slot.className = "slot";
+
+        const top = document.createElement("div");
+        top.className = "pointer-top";
+
+        if (step.low === idx && step.high === idx) {
+            top.innerHTML = `<span class="p-both">low = high</span>`;
+        } else if (step.low === idx) {
+            top.innerHTML = `<span class="p-low">low</span>`;
+        } else if (step.high === idx) {
+            top.innerHTML = `<span class="p-high">high</span>`;
+        } else {
+            top.innerHTML = "";
+        }
+
+        const cell = document.createElement("div");
+        cell.className = "cell";
+
+        if (step.smallRange.includes(idx)) cell.classList.add("small");
+        if (step.bigRange.includes(idx)) cell.classList.add("big");
+        if (step.hole === idx) cell.classList.add("hole");
+        if (step.changed.includes(idx)) cell.classList.add("changed");
+        if (step.finalPivot === idx) cell.classList.add("pivot-final");
+
+        cell.textContent = val;
+
+        const index = document.createElement("div");
+        index.className = "idx";
+        index.textContent = `下标 ${idx}`;
+
+        const bottom = document.createElement("div");
+        bottom.className = "pointer-bottom";
+        if (step.hole === idx) {
+            bottom.innerHTML = `<span style="background:#f59e0b;">坑</span>`;
+        } else if (step.finalPivot === idx) {
+            bottom.innerHTML = `<span style="background:#8b5cf6;">pivot</span>`;
+        } else {
+            bottom.innerHTML = "";
+        }
+
+        slot.appendChild(top);
+        slot.appendChild(cell);
+        slot.appendChild(index);
+        slot.appendChild(bottom);
+        array.appendChild(slot);
+    });
+}
+
+function render() {
+    const step = steps[stepIndex];
+    renderArray(step);
+    renderCode(step.line);
+    document.getElementById("status").innerHTML =
+        `<strong>第 ${stepIndex + 1} / ${steps.length} 步：</strong>${step.text}`;
+    document.getElementById("pivotBox").textContent =
+        step.pivot === null ? "pivot = 未取出 / 已放回" : `pivot = ${step.pivot}`;
+    document.getElementById("prevBtn").disabled = stepIndex === 0;
+    document.getElementById("nextBtn").disabled = stepIndex === steps.length - 1;
+}
+
+function nextStep() {
+    if (stepIndex < steps.length - 1) {
+        stepIndex++;
+        render();
+    } else {
+        stopAuto();
+    }
+}
+
+function prevStep() {
+    if (stepIndex > 0) {
+        stepIndex--;
+        render();
+    }
+}
+
+function reset() {
+    stopAuto();
+    stepIndex = 0;
+    render();
+}
+
+function autoPlay() {
+    if (timer) {
+        stopAuto();
+        return;
+    }
+    document.getElementById("autoBtn").textContent = "暂停";
+    timer = setInterval(() => {
+        if (stepIndex < steps.length - 1) {
+            stepIndex++;
+            render();
+        } else {
+            stopAuto();
+        }
+    }, 1350);
+}
+
+function stopAuto() {
+    if (timer) {
+        clearInterval(timer);
+        timer = null;
+    }
+    document.getElementById("autoBtn").textContent = "自动播放";
+}
+
+document.getElementById("nextBtn").addEventListener("click", nextStep);
+document.getElementById("prevBtn").addEventListener("click", prevStep);
+document.getElementById("resetBtn").addEventListener("click", reset);
+document.getElementById("autoBtn").addEventListener("click", autoPlay);
+
+render();
+</script>
+</body>
+</html>
